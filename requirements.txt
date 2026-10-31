@@ -1,21 +1,32 @@
-streamlit>=1.32.0
+# ── Core UI ───────────────────────────────────────────────────────────────────
+gradio>=6.0.0
+
+# ── AI / ML ───────────────────────────────────────────────────────────────────
 transformers>=4.40.0
 torch>=2.2.0
 torchaudio>=2.2.0
+accelerate>=0.28.0
+sentencepiece>=0.2.0
+
+# ── Audio Processing ──────────────────────────────────────────────────────────
 librosa>=0.10.0
 sounddevice>=0.4.6
 soundfile>=0.12.0
 pydub>=0.25.1
+
+# ── Text-to-Speech ────────────────────────────────────────────────────────────
 gTTS>=2.5.0
-sentencepiece>=0.2.0
+
+# ── Data / Utils ──────────────────────────────────────────────────────────────
 numpy>=1.26.0
 scipy>=1.12.0
-accelerate>=0.28.0
-datasets>=2.18.0
-audiorecorder>=0.0.5
-streamlit-audiorecorder>=0.0.5
-# From-scratch training additions
 matplotlib>=3.8.0
+
+# ── Fine-tuning (optional) ────────────────────────────────────────────────────
+datasets>=2.18.0
+peft>=0.10.0
+evaluate>=0.4.0
 tensorboard>=2.16.0
-editdistance>=0.8.1
+jiwer>=3.0.0          # WER metric for Whisper
+sacrebleu>=2.3.0      # BLEU metric for NLLB
 einops>=0.7.0
