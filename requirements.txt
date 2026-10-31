@@ -2,7 +2,9 @@
 gradio>=6.0.0
 
 # ── AI / ML ───────────────────────────────────────────────────────────────────
-transformers>=4.40.0
+# IMPORTANT: huggingface-hub must be <1.0 for transformers compatibility
+huggingface-hub>=0.20.0,<1.0
+transformers>=4.40.0,<5.0
 torch>=2.2.0
 torchaudio>=2.2.0
 accelerate>=0.28.0

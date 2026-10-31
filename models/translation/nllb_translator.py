@@ -51,18 +51,27 @@ class NLLBTranslator:
     def _load_model(self):
         """Load model and tokenizer from HuggingFace Hub."""
         try:
-            from transformers import AutoModelForSeq2SeqLM, NllbTokenizer
+            # Suppress version-check noise that raises ImportError on hub version mismatches
+            import transformers
+            from transformers import AutoModelForSeq2SeqLM
+
+            # NllbTokenizer may not exist in older transformers — fall back to AutoTokenizer
+            try:
+                from transformers import NllbTokenizer
+                self.tokenizer = NllbTokenizer.from_pretrained(self.model_id)
+            except (ImportError, AttributeError):
+                from transformers import AutoTokenizer
+                self.tokenizer = AutoTokenizer.from_pretrained(self.model_id)
 
             logger.info(f"Loading NLLB-200 model: {self.model_id} on {self.device}")
-
-            self.tokenizer = NllbTokenizer.from_pretrained(self.model_id)
 
             torch_dtype = torch.float16 if self.device == "cuda" else torch.float32
             self.model = AutoModelForSeq2SeqLM.from_pretrained(
                 self.model_id,
-                dtype=torch_dtype,
                 low_cpu_mem_usage=True,
             )
+            if torch_dtype == torch.float16:
+                self.model = self.model.half()
             self.model.to(self.device)
             self.model.eval()
 
@@ -77,21 +86,32 @@ class NLLBTranslator:
     def _get_target_token_id(self, target_lang_nllb: str) -> int:
         """Retrieve the forced BOS token ID for the target language."""
         try:
-            return self.tokenizer.lang_code_to_id[target_lang_nllb]
+            # New transformers API
+            if hasattr(self.tokenizer, "lang_code_to_id"):
+                return self.tokenizer.lang_code_to_id[target_lang_nllb]
+            # Fallback: convert token to ID directly
+            tok_id = self.tokenizer.convert_tokens_to_ids(target_lang_nllb)
+            if tok_id != self.tokenizer.unk_token_id:
+                return tok_id
+            raise KeyError(target_lang_nllb)
         except KeyError:
             logger.warning(
                 f"Language code '{target_lang_nllb}' not found in tokenizer. "
                 "Falling back to English."
             )
-            return self.tokenizer.lang_code_to_id.get("eng_Latn", 0)
+            fallback = getattr(self.tokenizer, "lang_code_to_id", {})
+            return fallback.get("eng_Latn", self.tokenizer.convert_tokens_to_ids("eng_Latn") or 0)
 
     # ── Public API ─────────────────────────────────────────────────────────────
 
     def translate(
         self,
         text: str,
-        source_lang_nllb: str,
-        target_lang_nllb: str,
+        source_lang_nllb: str = "eng_Latn",
+        target_lang_nllb: str = "hin_Deva",
+        *,
+        tgt_lang: str | None = None,          # alias accepted by gradio_app.py
+        src_lang: str | None = None,           # alias accepted by gradio_app.py
         max_length: int = 512,
         num_beams: int = 4,
     ) -> str:
@@ -108,6 +128,12 @@ class NLLBTranslator:
         Returns:
             Translated text string, or empty string on failure.
         """
+        # Accept keyword aliases
+        if tgt_lang is not None:
+            target_lang_nllb = tgt_lang
+        if src_lang is not None:
+            source_lang_nllb = src_lang
+
         if not self._loaded:
             return ""
         if not text or not text.strip():

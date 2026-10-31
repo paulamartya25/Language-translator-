@@ -1,232 +1,243 @@
 # 🌐 Multilingual AI Language Translator
 
-A production-quality, end-to-end multilingual translation system that converts
-speech (or text) into 40+ Indian and international languages — with audio
-playback for every translation.
+> **Speak → Transcribe → Translate → Hear** — in 49 languages, powered by 3 custom deep learning architectures built from scratch in PyTorch.
 
 ---
 
-## Architecture
+## ✨ Features
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                      Streamlit Web UI (app/main.py)                 │
-│  ┌────────────┐  ┌──────────────┐  ┌─────────────────────────────┐ │
-│  │ 🎤 Live    │  │ 📁 Upload    │  │ ✍️ Text Input               │ │
-│  │ Recording  │  │ Audio File   │  │ (skip ASR)                  │ │
-│  └─────┬──────┘  └──────┬───────┘  └──────────────┬──────────────┘ │
-└────────┼────────────────┼─────────────────────────┼───────────────-┘
-         │                │                          │
-         ▼                ▼                          │
-┌─────────────────────────────────────────────────┐ │
-│              ASR Pipeline                        │ │
-│  ┌──────────────────────────────────────────┐   │ │
-│  │  AudioProcessor                          │   │ │
-│  │  · Resample → 16 kHz mono               │   │ │
-│  │  · Chunk into 30-second windows          │   │ │
-│  │  · Compute 80-ch Log-Mel Spectrogram     │   │ │
-│  └──────────────────┬───────────────────────┘   │ │
-│                     │                            │ │
-│  ┌──────────────────▼───────────────────────┐   │ │
-│  │  WhisperASR (Audio-Spectrogram Transform.)│   │ │
-│  │  openai/whisper-base  (configurable)     │   │ │
-│  │  · Encoder: Conv stem + Transformer      │   │ │
-│  │  · Decoder: Cross-attention, auto-regr.  │   │ │
-│  │  · Output: text + detected language      │   │ │
-│  └──────────────────┬───────────────────────┘   │ │
-│                     │  (if empty / noisy)        │ │
-│  ┌──────────────────▼───────────────────────┐   │ │
-│  │  ConformerASR (Fallback)                 │   │ │
-│  │  facebook/wav2vec2-conformer-rel-pos-large│   │ │
-│  │  · Conv encoder + Conformer blocks       │   │ │
-│  │  · CTC decoding                          │   │ │
-│  └──────────────────┬───────────────────────┘   │ │
-└─────────────────────┼───────────────────────────┘ │
-                      │  transcription + lang code   │
-                      └──────────────┬───────────────┘
-                                     │
-                                     ▼
-┌────────────────────────────────────────────────────┐
-│              Translation Pipeline                  │
-│  ┌──────────────────────────────────────────────┐  │
-│  │  NLLBTranslator (Seq2Seq Encoder-Decoder)    │  │
-│  │  facebook/nllb-200-distilled-600M            │  │
-│  │  · Tokenize with FLORES+ lang codes          │  │
-│  │  · Encode source → Decode with forced BOS    │  │
-│  │  · Translate to N languages in sequence      │  │
-│  └──────────────────────────────────────────────┘  │
-└────────────────────────┬───────────────────────────┘
-                         │  {lang_name: translated_text}
-                         ▼
-┌────────────────────────────────────────────────────┐
-│              TTS Pipeline                          │
-│  ┌──────────────────────────────────────────────┐  │
-│  │  TTSEngine (gTTS)                            │  │
-│  │  · Synthesize MP3 audio for each language    │  │
-│  │  · Returns bytes → st.audio() playback       │  │
-│  └──────────────────────────────────────────────┘  │
-└────────────────────────────────────────────────────┘
-```
+| Feature | Details |
+|---------|---------|
+| 🎙️ **Live Recording** | Record microphone audio → auto-transcribe → translate |
+| 📝 **Text Input** | Type English text → translate + hear in any language |
+| 🌍 **49 Languages** | 22 Indian + 27 International, all with voice output |
+| 🏗️ **Custom Architectures** | 3 models built from scratch — no wrapper magic |
+| 🎨 **Beautiful UI** | Dark ocean theme + floating multilingual letters |
+| 🚀 **Kaggle Training** | 4 self-contained notebooks to train on free GPUs |
 
 ---
 
-## Supported Languages
+## 🏗️ Custom Model Architectures
+
+### 1. 🎙️ MicroConformerASR (~25M parameters)
+```
+Waveform → Log-Mel Spectrogram (80 mels)
+         → Conv Subsampling (4×)
+         → 6× ConformerBlocks
+              ├── FeedForward Module (Swish, half-step)
+              ├── RelPos Multi-Head Self-Attention
+              ├── Convolution Module (depthwise, GLU)
+              └── FeedForward Module (Swish, half-step)
+         → 6× Transformer Decoder Blocks (cross-attention)
+         ├── CTC Head (30% weight)
+         └── CE Head (70% weight, weight-tied LM head)
+```
+- **Training**: FLEURS (Hindi, Bengali, Tamil, Telugu, Marathi, Gujarati, Kannada, Malayalam) + CommonVoice English
+- **Output**: `asr_model.pt`
+
+### 2. 🌐 MultilingualSeq2Seq (~35M parameters)
+```
+Source Tokens → Shared Embedding (weight-tied)
+              → 6× Encoder Blocks
+                   ├── RoPE Multi-Head Self-Attention
+                   └── GELU Feed-Forward Network
+              → 6× Decoder Blocks
+                   ├── RoPE Masked Self-Attention
+                   ├── Cross-Attention (no RoPE on encoder K,V)
+                   └── GELU Feed-Forward Network
+              → Weight-Tied LM Head
+              → Label Smoothing Loss (ε=0.1)
+```
+- **Training**: Samanantar (11 Indian pairs) + OPUS-100 (international)
+- **Output**: `nmt_model.pt`
+
+### 3. 🔊 FastSpeech2TTS (~20M parameters)
+```
+Phonemes → Embedding
+         → 4× FFT Encoder Blocks (Conv1D FFN, kernel=9)
+         → Variance Adaptor
+              ├── Duration Predictor → Length Regulator
+              ├── Pitch Predictor → Quantized Embedding
+              └── Energy Predictor → Quantized Embedding
+         → 4× FFT Decoder Blocks
+         → Linear → Mel-Spectrogram
+         → 5-layer PostNet (refinement)
+         → Griffin-Lim Vocoder (training-free)
+```
+- **Training**: LJSpeech-1.1 + IndicTTS
+- **Output**: `tts_model.pt`
+
+---
+
+## 🌍 Supported Languages
 
 ### 🇮🇳 Indian Languages (22)
+| # | Language | Script | Flag |
+|---|----------|--------|------|
+| 1 | Hindi | Devanagari | 🇮🇳 |
+| 2 | Bengali | Bengali | 🇧🇩 |
+| 3 | Tamil | Tamil | 🇮🇳 |
+| 4 | Telugu | Telugu | 🇮🇳 |
+| 5 | Marathi | Devanagari | 🇮🇳 |
+| 6 | Gujarati | Gujarati | 🇮🇳 |
+| 7 | Kannada | Kannada | 🇮🇳 |
+| 8 | Malayalam | Malayalam | 🇮🇳 |
+| 9 | Punjabi | Gurmukhi | 🇮🇳 |
+| 10 | Odia | Odia | 🇮🇳 |
+| 11 | Assamese | Bengali | 🇮🇳 |
+| 12 | Urdu | Arabic | 🇵🇰 |
+| 13 | Sanskrit | Devanagari | 🇮🇳 |
+| 14 | Maithili | Devanagari | 🇮🇳 |
+| 15 | Sindhi | Arabic | 🇮🇳 |
+| 16 | Nepali | Devanagari | 🇳🇵 |
+| 17 | Konkani | Devanagari | 🇮🇳 |
+| 18 | Manipuri | Meitei | 🇮🇳 |
+| 19 | Bodo | Devanagari | 🇮🇳 |
+| 20 | Dogri | Devanagari | 🇮🇳 |
+| 21 | Kashmiri | Arabic | 🇮🇳 |
+| 22 | Santali | Ol Chiki | 🇮🇳 |
 
-| Language   | NLLB Code    | Script      |
-|------------|--------------|-------------|
-| Hindi      | hin_Deva     | Devanagari  |
-| Bengali    | ben_Beng     | Bengali     |
-| Telugu     | tel_Telu     | Telugu      |
-| Marathi    | mar_Deva     | Devanagari  |
-| Tamil      | tam_Taml     | Tamil       |
-| Urdu       | urd_Arab     | Nastaliq    |
-| Gujarati   | guj_Gujr     | Gujarati    |
-| Kannada    | kan_Knda     | Kannada     |
-| Odia       | ory_Orya     | Odia        |
-| Malayalam  | mal_Mlym     | Malayalam   |
-| Punjabi    | pan_Guru     | Gurmukhi    |
-| Assamese   | asm_Beng     | Bengali     |
-| Maithili   | mai_Deva     | Devanagari  |
-| Sanskrit   | san_Deva     | Devanagari  |
-| Nepali     | npi_Deva     | Devanagari  |
-| Konkani    | kok_Deva     | Devanagari  |
-| Sindhi     | snd_Arab     | Arabic      |
-| Kashmiri   | kas_Arab     | Nastaliq    |
-| Manipuri   | mni_Beng     | Bengali     |
-| Dogri      | dgo_Deva     | Devanagari  |
-| Bodo       | brx_Deva     | Devanagari  |
-| Santali    | sat_Olck     | Ol Chiki    |
-
-### 🌍 International Languages (26+)
-
-English, Japanese, Chinese (Simplified/Traditional), German, French, Dutch,
-Spanish, Portuguese, Russian, Arabic, Korean, Italian, Turkish, Vietnamese,
-Thai, Swedish, Polish, Indonesian, Greek, Hebrew, Swahili, Malay, Filipino,
-Ukrainian, Czech, Romanian.
+### 🌏 International Languages (27)
+Japanese 🇯🇵 · Chinese 🇨🇳 · German 🇩🇪 · French 🇫🇷 · Dutch 🇳🇱 · Spanish 🇪🇸 · Italian 🇮🇹 · Portuguese 🇵🇹 · Russian 🇷🇺 · Arabic 🇸🇦 · Korean 🇰🇷 · Turkish 🇹🇷 · Polish 🇵🇱 · Swedish 🇸🇪 · Norwegian 🇳🇴 · Danish 🇩🇰 · Finnish 🇫🇮 · Greek 🇬🇷 · Hebrew 🇮🇱 · Thai 🇹🇭 · Vietnamese 🇻🇳 · Indonesian 🇮🇩 · Malay 🇲🇾 · Filipino 🇵🇭 · Swahili 🇰🇪 · Ukrainian 🇺🇦 · Czech 🇨🇿 · Romanian 🇷🇴
 
 ---
 
-## Models
+## 🚀 Quick Start
 
-| Component     | Model                                    | Params | Task                         |
-|---------------|------------------------------------------|--------|------------------------------|
-| ASR (primary) | `openai/whisper-base`                    | 74M    | Speech → Text + lang detect  |
-| ASR (fallback)| `facebook/wav2vec2-conformer-rel-pos-large` | 600M | Noisy speech → Text (CTC)  |
-| Translation   | `facebook/nllb-200-distilled-600M`       | 600M   | Text → 200 language targets  |
-| TTS           | `gTTS` (Google TTS API)                  | Cloud  | Text → MP3 audio             |
-
-> **Tip:** Switch Whisper to `openai/whisper-large-v3` in the sidebar for
-> best ASR quality (requires ~3 GB VRAM or patience on CPU).
-
----
-
-## Installation
-
-### Prerequisites
-
-- Python 3.10+
-- `ffmpeg` in PATH (required by pydub for MP3 decoding)
-  - Windows: `winget install ffmpeg` or download from https://ffmpeg.org
-
-### Steps
-
-```bash
-# 1. Clone / enter the project directory
-cd LANGUAGE_TRANSLATER
-
-# 2. Create a virtual environment
-python -m venv .venv
-.venv\Scripts\activate       # Windows
-# source .venv/bin/activate  # Linux/macOS
-
-# 3. Install dependencies
-pip install -r requirements.txt
-
-# 4. Run the app
-streamlit run app/main.py
+### Option 1 — Windows (double-click)
+```
+run.bat
 ```
 
-The first run will download model weights from HuggingFace Hub
-(~1-2 GB total; cached locally after first download).
+### Option 2 — Command Line
+```bash
+# Clone
+git clone https://github.com/paulamartya25/Language-translator-.git
+cd Language-translator-
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Launch
+python app/gradio_app.py
+```
+Open **http://localhost:7860** in your browser.
 
 ---
 
-## Usage
-
-### 🎤 Live Recording
-1. Open the **Live Recording** tab.
-2. Set the recording duration (3–60 seconds).
-3. Click **Start Recording** and speak clearly.
-4. Click **Translate Recorded Audio**.
-
-### 📁 Upload Audio
-1. Open the **Upload Audio** tab.
-2. Upload a WAV/MP3/M4A/OGG/FLAC file.
-3. Click **Translate Audio File**.
-
-### ✍️ Text Input
-1. Open the **Text Input** tab.
-2. Select source language in the sidebar (Manual mode).
-3. Type or paste text.
-4. Click **Translate Text**.
-
-### Results
-- Each translated language appears in a card with the national flag.
-- Click the ▶ play button beneath each card to hear the TTS audio.
-- Click **Download All Translations (JSON)** to export results.
-
----
-
-## Hardware Requirements
-
-| Mode       | RAM   | VRAM   | Speed (per language) |
-|------------|-------|--------|----------------------|
-| CPU only   | 8 GB  | —      | ~15–30 s             |
-| GPU (CUDA) | 8 GB  | 4 GB+  | ~1–3 s               |
-
-> On CPU, consider using `openai/whisper-tiny` or `whisper-base` for faster
-> response and `facebook/nllb-200-distilled-600M` (already the smallest NLLB).
-
----
-
-## Project Structure
+## 🗺️ Project Structure
 
 ```
 LANGUAGE_TRANSLATER/
+│
 ├── app/
-│   ├── main.py                   ← Streamlit entry point
-│   └── ui/
-│       └── styles.css            ← Custom dark-theme CSS
-├── config/
-│   ├── languages.py              ← Language registry (NLLB codes, flags)
-│   └── settings.py               ← Global model & app settings
+│   └── gradio_app.py           # 🎨 Main Gradio UI (dark ocean + floating letters)
+│
 ├── models/
+│   ├── architectures/
+│   │   ├── micro_conformer_asr.py    # 🎙️ Custom ASR (~25M)
+│   │   ├── multilingual_seq2seq.py   # 🌐 Custom NMT (~35M)
+│   │   ├── fastspeech2_tts.py        # 🔊 Custom TTS (~20M)
+│   │   └── demo_architectures.py     # Quick sanity-check demo
 │   ├── asr/
-│   │   ├── whisper_asr.py        ← Whisper ASR pipeline
-│   │   └── conformer_asr.py      ← wav2vec2-Conformer fallback
+│   │   ├── whisper_asr.py            # HuggingFace Whisper wrapper (fallback)
+│   │   └── conformer_asr.py          # Wav2Vec2-Conformer wrapper (fallback)
 │   ├── translation/
-│   │   └── nllb_translator.py    ← NLLB-200 translation
+│   │   └── nllb_translator.py        # HuggingFace NLLB-200 wrapper (fallback)
 │   └── tts/
-│       └── gtts_engine.py        ← gTTS synthesis
+│       └── gtts_engine.py            # gTTS wrapper (fallback)
+│
+├── inference/
+│   └── full_inference.py        # End-to-end pipeline class
+│
 ├── pipeline/
-│   ├── audio_processor.py        ← Recording, mel-spec, chunking
-│   ├── language_detector.py      ← Language detection wrapper
-│   └── translator_pipeline.py    ← End-to-end orchestration
+│   ├── audio_processor.py
+│   ├── language_detector.py
+│   └── translator_pipeline.py
+│
+├── training/
+│   ├── finetune_whisper.py      # LoRA fine-tuning scripts
+│   ├── finetune_nllb.py
+│   └── TRAINING_GUIDE.md
+│
+├── kaggle/
+│   ├── notebook_1_train_asr.ipynb   # Train MicroConformerASR on FLEURS
+│   ├── notebook_2_train_nmt.ipynb   # Train Seq2Seq NMT on Samanantar/OPUS
+│   ├── notebook_3_train_tts.ipynb   # Train FastSpeech2 on LJSpeech
+│   └── notebook_4_live_app.ipynb    # Live Gradio app (share=True)
+│
+├── config/
+│   ├── languages.py             # 49 language configs + FLORES+ codes
+│   └── settings.py              # Model IDs, device, audio params
+│
 ├── utils/
-│   ├── audio_utils.py            ← Audio format helpers
-│   └── text_utils.py             ← Text cleaning, script detection
+│   ├── audio_utils.py
+│   └── text_utils.py
+│
 ├── requirements.txt
+├── run.bat                      # Windows launcher
+├── run.sh                       # Linux/Mac launcher
 └── README.md
 ```
 
 ---
 
-## License
+## 🎓 Kaggle Training Pipeline
 
-This project is for educational and research purposes.
-Model weights are subject to their respective licenses:
-- Whisper: MIT
-- NLLB-200: CC-BY-NC 4.0
-- gTTS: MIT
+Train each model separately using free Kaggle GPU (T4 x2), save as Kaggle Datasets, then combine in Notebook 4:
+
+```
+📓 Notebook 1  →  asr_model.pt   (Kaggle Dataset: multilingual-asr-model)
+📓 Notebook 2  →  nmt_model.pt   (Kaggle Dataset: multilingual-nmt-model)
+📓 Notebook 3  →  tts_model.pt   (Kaggle Dataset: multilingual-tts-model)
+                        ↓
+📓 Notebook 4  →  Loads all 3 .pt files → Gradio app with share=True
+                  → Public URL valid for 72 hours
+```
+
+### Steps
+1. Open each notebook on [kaggle.com/code](https://kaggle.com/code) → New Notebook → Upload `.ipynb`
+2. Enable GPU accelerator (T4 x2)
+3. Run all cells
+4. After training completes: **Output → Save as Dataset**
+5. In Notebook 4: **Add Data** → Your Datasets → add all 3 model datasets
+6. Run Notebook 4 → copy the `gradio.live` URL
+
+---
+
+## 🎨 UI Features
+
+- **Dark ocean background** (`#060d1f`) with radial cyan glow
+- **Floating multilingual letters** from 15+ scripts scrolling across the screen:
+  - Devanagari (क ख ग) · Bengali (অ আ ই) · Tamil (அ ஆ இ) · Telugu (అ ఆ ఇ)
+  - Gujarati (અ આ) · Kannada (ಅ ಆ) · Malayalam (അ ആ) · Gurmukhi (ਅ ਆ)
+  - Hiragana (あいう) · Katakana (アイウ) · CJK (你好我) · Hangul (가나다)
+  - Arabic (ا ب ت) · Greek (α β γ) · Cyrillic (А Б В) · Hebrew (א ב ג) · Thai (ก ข ค)
+- **7 tabs**: Live Recording · Text Input · Multi-Language · All 49 · Indian · International · Architecture
+- **Color-coded models**: Cyan=ASR · Violet=NMT · Amber=TTS
+
+---
+
+## 🔧 Dependencies
+
+```
+Python 3.10+
+torch >= 2.2.0
+torchaudio >= 2.2.0
+transformers >= 4.40.0
+huggingface-hub >= 1.16.0
+gradio >= 6.0.0
+gTTS >= 2.5.0
+librosa >= 0.10.0
+sentencepiece >= 0.2.0
+```
+
+---
+
+## 📜 License
+
+MIT License — free for personal and educational use.
+
+---
+
+*Built with ❤️ using PyTorch · Gradio · HuggingFace Transformers*
