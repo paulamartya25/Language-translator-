@@ -14,3 +14,8 @@ accelerate>=0.28.0
 datasets>=2.18.0
 audiorecorder>=0.0.5
 streamlit-audiorecorder>=0.0.5
+# From-scratch training additions
+matplotlib>=3.8.0
+tensorboard>=2.16.0
+editdistance>=0.8.1
+einops>=0.7.0

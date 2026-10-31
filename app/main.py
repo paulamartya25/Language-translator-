@@ -478,10 +478,13 @@ def main():
     _ensure_models(settings["whisper_model_id"])
 
     # ── Input Tabs ─────────────────────────────────────────────────────────────
-    tab_mic, tab_upload, tab_text = st.tabs([
+    tab_mic, tab_upload, tab_text, tab_viz, tab_history, tab_about = st.tabs([
         "🎤 Live Recording",
         "📁 Upload Audio",
         "✍️ Text Input",
+        "📊 Visualizer",
+        "📜 History",
+        "ℹ️ About",
     ])
 
     audio_array: Optional[np.ndarray] = None
@@ -628,6 +631,12 @@ def main():
 
             if result:
                 st.session_state["last_result"] = result
+                # Save to history
+                try:
+                    from app.pages.history import save_to_history
+                    save_to_history(result)
+                except Exception:
+                    pass
 
     # ── Display last results ───────────────────────────────────────────────────
     if "last_result" in st.session_state:
@@ -638,6 +647,23 @@ def main():
         if st.button("🔄 Clear Results"):
             del st.session_state["last_result"]
             st.rerun()
+
+    # ── Visualizer Tab ─────────────────────────────────────────────────────────
+    with tab_viz:
+        from app.pages.visualizer import render_visualizer_page
+        viz_audio = st.session_state.get("mic_audio")
+        viz_sr = SAMPLE_RATE
+        render_visualizer_page(viz_audio, viz_sr)
+
+    # ── History Tab ────────────────────────────────────────────────────────────
+    with tab_history:
+        from app.pages.history import render_history_page
+        render_history_page()
+
+    # ── About Tab ──────────────────────────────────────────────────────────────
+    with tab_about:
+        from app.pages.about import render_about_page
+        render_about_page()
 
     # ── Footer ─────────────────────────────────────────────────────────────────
     st.divider()

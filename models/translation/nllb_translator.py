@@ -60,7 +60,7 @@ class NLLBTranslator:
             torch_dtype = torch.float16 if self.device == "cuda" else torch.float32
             self.model = AutoModelForSeq2SeqLM.from_pretrained(
                 self.model_id,
-                torch_dtype=torch_dtype,
+                dtype=torch_dtype,
                 low_cpu_mem_usage=True,
             )
             self.model.to(self.device)
