@@ -1,0 +1,210 @@
+/* ============================================================
+   Multilingual AI Translator — Custom Streamlit Styles
+   Dark-themed UI with vibrant gradient accents
+   ============================================================ */
+
+/* ── Root / Global ───────────────────────────────────────── */
+:root {
+    --primary:       #6C63FF;
+    --primary-light: #9B94FF;
+    --accent:        #00D4AA;
+    --danger:        #FF6B6B;
+    --warning:       #FFD93D;
+    --bg-dark:       #0E1117;
+    --bg-card:       #1A1F2E;
+    --bg-card-hover: #242B3D;
+    --border:        #2E3A52;
+    --text-primary:  #E8EAF6;
+    --text-muted:    #8892A4;
+    --radius:        12px;
+    --shadow:        0 4px 24px rgba(0, 0, 0, 0.4);
+}
+
+/* ── Animated gradient header ────────────────────────────── */
+.translator-header {
+    background: linear-gradient(135deg, #6C63FF 0%, #00D4AA 50%, #FF6B6B 100%);
+    background-size: 200% 200%;
+    animation: gradientShift 6s ease infinite;
+    border-radius: var(--radius);
+    padding: 2rem 1.5rem;
+    text-align: center;
+    margin-bottom: 1.5rem;
+    box-shadow: var(--shadow);
+}
+
+@keyframes gradientShift {
+    0%   { background-position: 0%   50%; }
+    50%  { background-position: 100% 50%; }
+    100% { background-position: 0%   50%; }
+}
+
+.translator-header h1 {
+    color: #ffffff;
+    font-size: 2.4rem;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    margin: 0 0 0.25rem;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.translator-header p {
+    color: rgba(255,255,255,0.85);
+    font-size: 1.05rem;
+    margin: 0;
+}
+
+/* ── Language cards ──────────────────────────────────────── */
+.lang-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem 1.1rem 0.85rem;
+    margin-bottom: 0.75rem;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.lang-card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    background: linear-gradient(180deg, var(--primary), var(--accent));
+    border-radius: var(--radius) 0 0 var(--radius);
+}
+
+.lang-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 28px rgba(108, 99, 255, 0.25);
+    border-color: var(--primary);
+}
+
+.lang-card .lang-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.lang-card .lang-flag {
+    font-size: 1.5rem;
+    line-height: 1;
+}
+
+.lang-card .lang-name {
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--primary-light);
+    letter-spacing: 0.3px;
+}
+
+.lang-card .lang-text {
+    font-size: 0.92rem;
+    color: var(--text-primary);
+    line-height: 1.55;
+    word-break: break-word;
+    margin-top: 0.35rem;
+}
+
+/* ── Transcription card ──────────────────────────────────── */
+.transcription-card {
+    background: linear-gradient(135deg, #1A1F2E 0%, #1E2538 100%);
+    border: 1px solid var(--primary);
+    border-radius: var(--radius);
+    padding: 1.2rem 1.4rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 0 20px rgba(108, 99, 255, 0.15);
+}
+
+.transcription-card .label {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--primary-light);
+    font-weight: 600;
+    margin-bottom: 0.4rem;
+}
+
+.transcription-card .text {
+    font-size: 1.1rem;
+    color: var(--text-primary);
+    line-height: 1.6;
+}
+
+.transcription-card .meta {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: 0.6rem;
+}
+
+/* ── Section labels ──────────────────────────────────────── */
+.section-label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--accent);
+    margin: 1.2rem 0 0.6rem;
+    padding-bottom: 0.3rem;
+    border-bottom: 1px solid var(--border);
+}
+
+/* ── Status badge ────────────────────────────────────────── */
+.badge {
+    display: inline-block;
+    padding: 0.15rem 0.55rem;
+    border-radius: 20px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+.badge-success { background: rgba(0,212,170,0.15); color: var(--accent); border: 1px solid var(--accent); }
+.badge-primary { background: rgba(108,99,255,0.15); color: var(--primary-light); border: 1px solid var(--primary); }
+.badge-warning { background: rgba(255,217,61,0.15); color: var(--warning); border: 1px solid var(--warning); }
+.badge-danger  { background: rgba(255,107,107,0.15); color: var(--danger); border: 1px solid var(--danger); }
+
+/* ── Recording button pulse animation ───────────────────── */
+@keyframes pulse {
+    0%   { box-shadow: 0 0 0 0   rgba(255,107,107,0.6); }
+    70%  { box-shadow: 0 0 0 14px rgba(255,107,107,0); }
+    100% { box-shadow: 0 0 0 0   rgba(255,107,107,0); }
+}
+
+.recording-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: rgba(255,107,107,0.15);
+    border: 1px solid var(--danger);
+    border-radius: 20px;
+    padding: 0.3rem 0.9rem;
+    color: var(--danger);
+    font-weight: 600;
+    font-size: 0.85rem;
+    animation: pulse 1.5s infinite;
+}
+
+/* ── Streamlit widget overrides ──────────────────────────── */
+div[data-testid="stTabs"] [role="tab"] {
+    font-weight: 600;
+    border-radius: 8px 8px 0 0;
+}
+
+div[data-testid="stSidebar"] {
+    background: var(--bg-card) !important;
+}
+
+div[data-testid="stProgress"] > div > div {
+    background: linear-gradient(90deg, var(--primary), var(--accent)) !important;
+}
+
+/* ── Scrollbar styling ───────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-dark); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--primary); }
